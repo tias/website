@@ -293,24 +293,35 @@ module Fosdem
         l
       end
 
-      days = @db.exec(%q{
-        SELECT *
-        FROM conference_day
-        WHERE conference_id=$1
-        AND public=true
-        ORDER BY conference_day}, [cid]) {|res|
-        res.map{|row|
-          m = model row, [:conference_day_id, :name]
-          m['conference_day'] = Date.parse(row['conference_day'])
-          m
-        }.map{|x| slugify! x, :name}
-      }
-      day_by_day_id = byid days, :conference_day_id
-
-      # decorate days with a title
-      days.each do |d|
-        d['title'] = d['name']
-      end
+      days = begin
+               result = Array.new
+               myday = Date.parse(conference.fetch('first_day'))
+               lastday = Date.parse(conference.fetch('last_day'))
+               until (myday > lastday)
+                 result << myday
+                 myday = (myday + 1).to_date
+               end
+               result
+             end
+      #Pentabarf code
+      #days = @db.exec(%q{
+      #  SELECT *
+      #  FROM conference_day
+      #  WHERE conference_id=$1
+      #  AND public=true
+      #  ORDER BY conference_day}, [cid]) {|res|
+      #  res.map{|row|
+      #    m = model row, [:conference_day_id, :name]
+      #    m['conference_day'] = Date.parse(row['conference_day'])
+      #    m
+      #  }.map{|x| slugify! x, :name}
+      #}
+      #day_by_day_id = byid days, :conference_day_id
+      #
+      ## decorate days with a title
+      #days.each do |d|
+      #  d['title'] = d['name']
+      #end
 
       events = begin
                  time_before = Time.now
