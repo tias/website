@@ -93,10 +93,10 @@ module Fosdem
               if t.to_s =~ /^\d+$/
                 t.to_i
               else
-                @db.exec('SELECT conference_id FROM conference WHERE acronym=$1', [t]) do |res|
+                @db.exec('SELECT id FROM conferences WHERE acronym=$1', [t]) do |res|
                   fail "no conference found for acronym #{t}" if res.ntuples < 1
                   fail "found more than one conference that matches acronym #{t}" if res.ntuples > 1
-                  res.first['conference_id'].to_i
+                  res.first['id'].to_i
                 end
               end
             end
@@ -252,9 +252,9 @@ module Fosdem
       log(:high, "rendering cache")
       start_time = Time.now
 
-      conference = model(@db.exec('SELECT * FROM conference WHERE conference_id=$1', [cid]) do |res|
-        fail "failed to find conference with conference_id=#{cid}" if res.ntuples < 1
-        fail "found more than one conference with conference_id=#{cid}" if res.ntuples > 1
+      conference = model(@db.exec('SELECT * FROM conferences WHERE id=$1', [cid]) do |res|
+        fail "failed to find conference with id=#{cid}" if res.ntuples < 1
+        fail "found more than one conference with id=#{cid}" if res.ntuples > 1
         res.first
       end)
       event_time_offset = begin
