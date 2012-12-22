@@ -258,7 +258,9 @@ module Fosdem
         res.first
       end)
       event_time_offset = begin
-                            dc = Time.parse(conference['day_change'])
+                            # Not relevant for frab?
+                            #dc = Time.parse(conference['day_change'])
+                            dc = false
                             if dc
                               dc.hour * 3600 + dc.min * 60 + dc.sec
                             else
