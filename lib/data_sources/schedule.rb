@@ -12,6 +12,8 @@ module Fosdem
     end
 
     def update
+      # frab: only to create the YAML
+      Fosdem::Frab.update(@site.config)
       Fosdem::Pentabarf.update(@site.config)
     end
 
