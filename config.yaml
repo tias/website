@@ -169,6 +169,30 @@ pentabarf:
     width: 200
     height: 200
 
+frab:
+  conference_id: ltalks
+  username: nanoc
+  #password: 
+  database: frab
+  host:     apeiron.fosdem.org
+  port:     5432
+  schema:   public
+  meta_export_file: export/frab.yaml
+  export_roots:
+    photos:      export/frab/speaker/photos
+    thumbnails:  export/frab/speaker/thumbnails
+    attachments: export/frab/events/attachments
+    eventlogos:  export/frab/events/logo
+  thumbnail:
+    width: 32
+    height: 32
+  photo:
+    width: 220
+    height: 180
+  eventlogo:
+    width: 200
+    height: 200
+
 keysigning:
   submission_deadline: 2013-01-31
   homework_due: 2013-06-09
