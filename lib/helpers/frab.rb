@@ -271,7 +271,12 @@ module Fosdem
       conftz = begin
                  fail "conference has no timezone" unless conference.fetch('timezone')
                  require 'tzinfo'
-                 TZInfo::Timezone.get(conference.fetch('timezone'))
+                 tz_str = conference.fetch('timezone')
+                 # oh yes this is a hack...
+                 if tz_str == 'Brussels'
+                   tz_str = 'Europe/Brussels'
+                 end
+                 TZInfo::Timezone.get(tz_str)
                end
 
       def dblist(q, params=[])
