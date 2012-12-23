@@ -413,17 +413,17 @@ module Fosdem
 
       event_by_event_id = begin
                             h = {}
-                            events.each{|e| h[e['event_id']] = e}
+                            events.each{|e| h[e['id']] = e}
                             h
                           end
 
       eventpersons = begin
                        time_before = Time.now
+                         #AND role_state IN ('confirmed', 'offer')
                        eventpersons = dblist(%q{
                          SELECT *
-                         FROM event_person
+                         FROM event_people
                          WHERE event_role IN ('coordinator', 'moderator', 'speaker')
-                         AND event_role_state IN ('confirmed', 'offer')
                        })
                        .map{|ep|
                          %w(event_id person_id).each do |x|
