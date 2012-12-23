@@ -327,44 +327,41 @@ module Fosdem
                  time_before = Time.now
                  events = @db.exec(%q{
                    SELECT *
-                   FROM event
+                   FROM events
                    WHERE conference_id=$1
-                   AND event_state='accepted'
-                   AND event_state_progress IN ('confirmed', 'reconfirmed')
+                   AND state IN ('unconfirmed', 'confirmed')
                    AND start_time IS NOT NULL
-                   AND (language IS NULL OR language='en')
+                   AND (language IS NULL OR language='' OR language='en')
                    AND public=true
-                   ORDER BY event_id}, [cid]) {|res|
+                   ORDER BY id}, [cid]) {|res|
                    res
-                   .select{|e| e['duration'] and e['conference_track_id'] and e['conference_room_id'] and e['conference_day_id']}
+                   .select{|e| e['time_slots'] and e['track_id'] and e['room_id'] and e['start_time']}
                    .map{|e|
-                     day = day_by_day_id.fetch(e['conference_day_id'].to_i)
+                     day = Date.parse(e['start_time'])
 
-                     me = model e, [:event_id, :conference_id, :slug, :title, :subtitle, :conference_track_id, :event_type, :duration, :event_state, :event_state_progress, :language, :conference_room_id, :conference_day_id, :abstract, :description ]
+                     # missing: :slug, :conference_day_id, :duration, :event_state_progress
+                     me = model e, [:id, :conference_id, :title, :subtitle, :track_id, :event_type, :time_slots, :state, :language, :room_id, :abstract, :description ]
 
+                     start = DateTime.parse(e['start_time'])
+                     minutes_per_slot = 5 # TODO, hardcoded for now
+                     stop = start + Rational(e['time_slots'].to_i*minutes_per_slot,(24*60)) # hardcoded 5 min per slot
                      me['start_time'], me['end_time'] =
                        begin
-                         d = day.fetch('conference_day')
-                         t = Time.parse(e.fetch('start_time')) + event_time_offset
-                         dt = DateTime.new(d.year, d.month, d.day, t.hour, t.min, t.sec)
-                         du = Time.parse(e['duration'])
                          [
-                           dt,
-                           (dt + ((du.hour / 24.0) + (du.min / (24 * 60.0)) + (du.sec / (24 * 60 * 60.0))))
+                           start,
+                           stop
                          ].map{|x| x.strftime('%H:%M')}
                        end
                      me['start_datetime'], me['end_datetime'] =
                        begin
-                         d = day.fetch('conference_day')
-                         ['start_time', 'end_time'].map do |x|
-                           t = Time.parse(me[x])
-                           dt = DateTime.new(d.year, d.month, d.day, t.hour, t.min, t.sec)
+                         [start, stop].map do |x|
+                           dt = x
                            offset = conftz.period_for_local(dt).utc_total_offset
-                           yamldate DateTime.new(d.year, d.month, d.day, t.hour, t.min, t.sec, Rational(offset/3600.0, 24))
+                           yamldate DateTime.new(dt.year, dt.month, dt.day, dt.hour, dt.min, dt.sec, Rational(offset/3600.0, 24))
                          end
                        end
-                     me['day'] = day.fetch('slug')
-                     me['day_name'] = day.fetch('name')
+                     me['day'] = day#.fetch('slug')
+                     me['day_name'] = day#.fetch('name') # TODO?
                      #me['conference_day'] = day.fetch('conference_day_id')
 
                      me
