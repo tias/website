@@ -378,9 +378,9 @@ module Fosdem
         begin
           events.each do |event|
             err = []
-            err << "missing slug" unless event.has_key? 'slug'
+            #err << "missing slug" unless event.has_key? 'slug'
             err << "accepted event without start_time" unless event.has_key? 'start_time'
-            err << "accepted event without duration" unless event.has_key? 'duration'
+            err << "accepted event without timeslots" unless event.has_key? 'time_slots'
             if event['start_time']
               t = Time.parse(event['start_time'])
               err << "event starts before 09:00: #{event['start_time']}" if t.hour < 9
