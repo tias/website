@@ -712,11 +712,14 @@ module Fosdem
                            h
                          end
 
+        # somewhere when I started, I decided day is not a hash...
+        start_time = Hash.new
+        end_time = Hash.new
         days.each do |d|
           earliest = events_per_day.fetch(d).sort_by{|e| e.fetch 'start_time'}.first
           latest   = events_per_day.fetch(d).sort_by{|e| e.fetch 'end_time'}.last
-          d['start_time'] = earliest.fetch('start_time') if earliest
-          d['end_time'] = latest.fetch('end_time') if latest
+          start_time[d] = earliest.fetch('start_time') if earliest
+          end_time[d] = latest.fetch('end_time') if latest
         end
 
         {
@@ -729,11 +732,11 @@ module Fosdem
             kv = item.fetch(k)
             ['start_time', 'end_time'].each{|x| item[x] = {}}
             days.each do |d|
-              matching_events = events_per_day.fetch(d['slug']).select{|e| e.fetch(k) == kv}
+              matching_events = events_per_day.fetch(d).select{|e| e.fetch(k) == kv}
               earliest = matching_events.sort_by{|e| e.fetch 'start_time'}.first
               latest   = matching_events.sort_by{|e| e.fetch 'end_time'  }.last
-              item['start_time'][d['slug']] = earliest ? earliest.fetch('start_time') : nil
-              item['end_time'  ][d['slug']] = latest   ?   latest.fetch('end_time')   : nil
+              item['start_time'][d] = earliest ? earliest.fetch('start_time') : nil
+              item['end_time'  ][d] = latest   ?   latest.fetch('end_time')   : nil
             end
           end
         end
