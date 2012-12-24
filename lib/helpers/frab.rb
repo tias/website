@@ -341,6 +341,7 @@ module Fosdem
 
                      # missing: :slug, :conference_day_id, :duration, :event_state_progress
                      me = model e, [:id, :conference_id, :title, :subtitle, :track_id, :event_type, :time_slots, :state, :language, :room_id, :abstract, :description ]
+                     me['event_id'] = me['id'] # frab id
 
                      start = DateTime.parse(e['start_time'])
                      minutes_per_slot = 5 # TODO, hardcoded for now
@@ -455,7 +456,7 @@ module Fosdem
 
                    list = @db.exec('SELECT * FROM people ORDER BY id') do |res|
                      res
-                     .reject{|p| eventpersons_by_person_id.fetch(p['person_id'].to_i, []).empty?}
+                     .reject{|p| eventpersons_by_person_id.fetch(p['id'].to_i, []).empty?}
                      .map{|p| model(p, [:id, :gender, :first_name, :last_name, :public_name])}
                      .map do |p|
                        name = if p['public_name']
