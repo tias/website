@@ -707,15 +707,14 @@ module Fosdem
         events_per_day = begin
                            h = {}
                            days.each do |d|
-                             cdi = d.fetch('conference_day_id')
-                             h[d.fetch('slug')] = events.select{|e| e.fetch('conference_day_id') == cdi}
+                             h[d] = events.select{|e| d === e['day']}
                            end
                            h
                          end
 
         days.each do |d|
-          earliest = events_per_day.fetch(d['slug']).sort_by{|e| e.fetch 'start_time'}.first
-          latest   = events_per_day.fetch(d['slug']).sort_by{|e| e.fetch 'end_time'}.last
+          earliest = events_per_day.fetch(d).sort_by{|e| e.fetch 'start_time'}.first
+          latest   = events_per_day.fetch(d).sort_by{|e| e.fetch 'end_time'}.last
           d['start_time'] = earliest.fetch('start_time') if earliest
           d['end_time'] = latest.fetch('end_time') if latest
         end
