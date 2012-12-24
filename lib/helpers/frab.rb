@@ -453,20 +453,19 @@ module Fosdem
       speakers = begin
                    time_before = Time.now
 
-                   list = @db.exec('SELECT * FROM person ORDER BY person_id') do |res|
+                   list = @db.exec('SELECT * FROM people ORDER BY id') do |res|
                      res
                      .reject{|p| eventpersons_by_person_id.fetch(p['person_id'].to_i, []).empty?}
-                     .map{|p| model(p, [:person_id, :title, :gender, :first_name, :last_name, :public_name, :nickname])}
+                     .map{|p| model(p, [:id, :gender, :first_name, :last_name, :public_name])}
                      .map do |p|
                        name = if p['public_name']
                                 p['public_name']
                               elsif p['first_name'] and p['last_name']
                                 "#{p['first_name']} #{p['last_name']}"
-                              elsif p['nickname']
-                                p['nickname']
                               else
                                 %w(first_name last_name).map{|x| p[x]}.reject(&:nil?).join(' ')
                               end
+                       p['person_id'] = p['id'] # frab id
                        p['name'] = name
                        p['title'] = name
                        slugify! p, :name
