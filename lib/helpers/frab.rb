@@ -696,7 +696,7 @@ module Fosdem
           s['events'] = speaker_events.map(&to_slug)
           s['events_by_day'] = begin
                                  h = {}
-                                 days.each{|d| h[d.fetch('slug')] = speaker_events.select{|e| e['conference_day_id'] == d['conference_day_id']}.map(&to_slug)}
+                                 days.each{|d| h[d] = speaker_events.select{|e| d === e['day']}.map(&to_slug)}
                                  h
                                end
         end
