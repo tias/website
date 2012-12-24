@@ -486,17 +486,17 @@ module Fosdem
       # but fetch and cache all conference_person_link rows,
       # it's faster
       begin
-        cplinks = model(dblist('SELECT * FROM conference_person_link'))
+        cplinks = model(dblist('SELECT * FROM links WHERE linkable_type=\'Person\''))
         # and hash them by conference_person_id
         cplinks_by_cpid = begin
                             h = {}
-                            cplinks.each{|l| h[l.fetch('conference_person_id')] = []}
-                            cplinks.each{|l| h[l.fetch('conference_person_id')] << l}
+                            cplinks.each{|l| h[l.fetch('linkable_id')] = []}
+                            cplinks.each{|l| h[l.fetch('linkable_id')] << l}
                             h
                           end
         # now decorate the persons with their links
         speakers.each do |p|
-          links = model(cplinks_by_cpid.fetch(p['conference_person_id'], []), [:url, :title, :rank]).reject{|l| l['url'] == 'http://'}.sort_by{|l| l['rank']}
+          links = model(cplinks_by_cpid.fetch(p['id'], []), [:url, :title, :id]).reject{|l| l['url'] == 'http://'}.sort_by{|l| l['id']}
           # post-process links by setting 'title' if not set
           links.each do |l|
             l['title'] = l.fetch('url') unless l['title']
@@ -512,15 +512,15 @@ module Fosdem
         # fetch all event_link rows into a cache, faster
         # (don't run model() on all of them, we'll discard most as the query returns the
         # event_link rows for all conferences)
-        eventlinks = model(dblist('SELECT * FROM event_link ORDER BY event_id'))
+        eventlinks = model(dblist('SELECT * FROM links WHERE linkable_type=\'Event\' ORDER BY linkable_id'))
         eventlinks_by_event_id = begin
                                    h = {}
-                                   eventlinks.each{|l| h[l['event_id']] = []}
-                                   eventlinks.each{|l| h[l['event_id']] << l}
+                                   eventlinks.each{|l| h[l['linkable_id']] = []}
+                                   eventlinks.each{|l| h[l['linkable_id']] << l}
                                    h
                                  end
         events.each do |e|
-          links = model(eventlinks_by_event_id.fetch(e['event_id'], []).sort_by{|l| [l['rank'].to_i, l['event_link_id'].to_i]}, [:url, :title, :rank])
+          links = model(eventlinks_by_event_id.fetch(e['id'], []).sort_by{|l| [l['id'].to_i, l['linkable_id'].to_i]}, [:url, :title, :id])
           # post-process the links and set 'title' if not set
           links.each do |l|
             l['title'] = l.fetch('url') unless l['title']
