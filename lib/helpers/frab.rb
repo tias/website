@@ -623,14 +623,18 @@ module Fosdem
                 time_before = Time.now
                 rooms = slugify!(model(dblist(%q{
                 SELECT *
-                FROM conference_room
+                FROM rooms
                 WHERE conference_id=$1
                 AND public=true
-                ORDER BY rank, conference_room_id}, [cid]),
-                [:conference_room_id, :conference_room, :size, :rank]), :conference_room)
+                ORDER BY rank, id}, [cid]),
+                [:id, :name, :size, :rank]), :name)
                 log(:high, "loaded #{rooms.size} rooms", Time.now - time_before)
                 rooms
               end
+      rooms.each do |r|
+        r['conference_room_id'] = r['id']
+        r['conference_room'] = r['name']
+      end
 
       room_by_room_id = byid rooms, :conference_room_id
 
