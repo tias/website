@@ -537,12 +537,15 @@ module Fosdem
 
                  list = @db.exec(%q{
                  SELECT *
-                 FROM conference_track
+                 FROM tracks
                  WHERE conference_id=$1
-                 ORDER BY rank, conference_track_id}, [cid]) do |res|
+                 ORDER BY id}, [cid]) do |res|
                    res
-                   .reject{|t| t['conference_track'] == 'Main Tracks'}
+                   .reject{|t| t['name'] == 'Main Tracks'}
                    .map do |t|
+                     t['conference_track'] = t['name'] # frab
+                     t['conference_track_id'] = t['id'] # frab
+                     t['rank'] = t['id'] # frab
                      t['name'] = t['conference_track'].gsub(/\s+(track|devroom)$/i, '')
                      t['title'] = t['conference_track']
                      t['type'] = case t['conference_track']
