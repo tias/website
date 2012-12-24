@@ -547,39 +547,6 @@ module Fosdem
         log(:high, "loaded #{eventlinks.size} event links", Time.now - time_before)
       end
 
-      # post-process events with event_related
-      begin
-        time_before = Time.now
-
-        # fetch all event_related into a cache, faster
-        eventrelated = model(dblist(%q{
-        SELECT *
-        FROM event_related
-        ORDER BY event_id1, event_id2})).select{|r| event_by_event_id.has_key? r['event_id1']}
-        h = begin
-              require 'set'
-
-              h = {}
-              eventrelated.each do |r|
-                [
-                  [ r['event_id1'], r['event_id2'] ],
-                  [ r['event_id2'], r['event_id1'] ],
-                ].each do |a|
-                  h[a.first] = Set.new unless h.has_key? a.first
-                  h[a.first] << a.last
-                end
-              end
-              h
-            end
-
-        h.each do |from_id, to_ids|
-          from = event_by_event_id.fetch(from_id)
-          from['related'] = to_ids.map{|id| event_by_event_id.fetch(id)['slug']}
-        end
-
-        log(:high, "loaded #{eventrelated.size} event relations", Time.now - time_before)
-      end
-
       # tracks
       tracks = begin
                  time_before = Time.now
