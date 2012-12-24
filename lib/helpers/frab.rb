@@ -671,12 +671,11 @@ module Fosdem
 
         t['events_per_room_per_day'] = begin
                                          by_day_hash = {}
-                                         days.each{|d| by_day_hash[d.fetch('slug')] = {}}
-                                         trackevents.group_by{|e| e['conference_day_id']}.each do |day_id, track_events_per_day|
-                                           day_name = day_by_day_id.fetch(day_id).fetch('slug')
+                                         days.each{|d| by_day_hash[d] = {}}
+                                         trackevents.group_by{|e| e['day']}.each do |day, track_events_per_day|
                                            track_events_per_day.group_by{|e| e['conference_room_id']}.each do |room_id, track_events_per_room|
                                              room_slug = room_by_room_id.fetch(room_id).fetch('slug')
-                                             by_room_hash = by_day_hash.fetch(day_name)
+                                             by_room_hash = by_day_hash.fetch(day)
                                              by_room_hash[room_slug] = [] unless by_room_hash.has_key? room_slug
                                              track_events_per_room.each{|e| by_room_hash[room_slug] << e.fetch('slug')}
                                            end
