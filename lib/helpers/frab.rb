@@ -337,11 +337,16 @@ module Fosdem
                    res
                    .select{|e| e['time_slots'] and e['track_id'] and e['room_id'] and e['start_time']}
                    .map{|e|
+                     %w(id event_id track_id room_id).each do |x|
+                       e[x] = e[x].to_i
+                     end
                      day = Date.parse(e['start_time'])
 
-                     # missing: :slug, :conference_day_id, :duration, :event_state_progress
                      me = model e, [:id, :conference_id, :title, :subtitle, :track_id, :event_type, :time_slots, :state, :language, :room_id, :abstract, :description ]
-                     me['event_id'] = me['id'] # frab id
+                     # missing: :slug, :conference_day_id, :duration, :event_state_progress
+                     me['event_id'] = e['id'] # frab id
+                     me['conference_track_id'] = e['track_id'] # frab
+                     me['conference_room_id'] = e['room_id'] # frab
 
                      start = DateTime.parse(e['start_time'])
                      minutes_per_slot = 5 # TODO, hardcoded for now
@@ -543,6 +548,7 @@ module Fosdem
                    res
                    .reject{|t| t['name'] == 'Main Tracks'}
                    .map do |t|
+                     t['id'] = t['id'].to_i
                      t['conference_track'] = t['name'] # frab
                      t['conference_track_id'] = t['id'] # frab
                      t['rank'] = t['id'] # frab
@@ -582,7 +588,7 @@ module Fosdem
           t['events'] = trackevents.map(&to_slug)
           t['events_by_day'] = begin
                                  h = {}
-                                 days.each{|d| h[d.fetch('slug')] = trackevents.select{|e| e['conference_day_id'] == d['conference_day_id']}.map(&to_slug)}
+                                 days.each{|d| h[d] = trackevents.select{|e| d === e['day']}.map(&to_slug)}
                                  h
                                end
 
