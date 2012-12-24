@@ -367,7 +367,7 @@ module Fosdem
                          end
                        end
                      me['day'] = day#.fetch('slug')
-                     me['day_name'] = day#.fetch('name') # TODO?
+                     me['day_name'] = day.strftime('%A %d %b %Y')
                      #me['conference_day'] = day.fetch('conference_day_id')
 
                      me
