@@ -647,7 +647,7 @@ module Fosdem
           # also set the events by day
           r['events_by_day'] = begin
                                  h = {}
-                                 days.each{|d| h[d.fetch('slug')] = roomevents.select{|e| e['conference_day_id'] == d['conference_day_id']}.map(&to_slug)}
+                                 days.each{|d| h[d] = roomevents.select{|e| d === e['day']}.map(&to_slug)}
                                  h
                                end
         end
