@@ -811,12 +811,18 @@ module Fosdem
         # (load all = 2.19s, one by one = 12.35s)
         counter = 0
         @db.exec(%q{
-        SELECT event_attachment_id, mime_type, title, pages, event_id, attachment_type, filename, md5(data) AS data_hash
-        FROM event_attachment
-        WHERE public=true
-        ORDER BY event_attachment_id}) do |res|
+        SELECT id, attachment_content_type, title, event_id, attachment_file_name, md5(attachment_file_name) AS data_hash
+        FROM event_attachments
+        ORDER BY id}) do |res|
           res
           .map{|a|
+            # pentabarfification
+            a['event_attachment_id'] = a['id']
+            a['mime_type'] = a['attachment_content_type']
+            a['attachment_type'] = a['attachment_content_type']
+            a['filename'] = a['attachment_file_name']
+            a['pages'] = 0 # ????
+
             h = a['data_hash']
             a = model(a)
             a['data_hash'] = h
@@ -929,9 +935,10 @@ module Fosdem
         to_export = []
         t = Time.now
         @db.exec(%q{
-        SELECT event_id, mime_type, md5(image) AS image_hash, octet_length(image) AS image_length
-        FROM event_image
-        ORDER BY event_id}) do |res|
+        SELECT id AS event_id, logo_content_type AS mime_type, md5(logo_file_name) AS image_hash, logo_file_size AS image_length
+        FROM events
+        WHERE logo_file_name != ''
+        ORDER BY id}) do |res|
           res
           .map{|i| model(i)}
           .each do |i|
