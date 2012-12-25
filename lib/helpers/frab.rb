@@ -515,7 +515,6 @@ module Fosdem
           end
           p['links'] = links
         end
-        puts speakers
       end
 
       # post-process events with event_link
