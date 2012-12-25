@@ -1051,10 +1051,10 @@ module Fosdem
         t = Time.now
         to_export = []
         @db.exec(%q{
-          SELECT person_id, mime_type, md5(image) AS image_hash, octet_length(image) AS image_length
-          FROM person_image
-          WHERE public=true
-          ORDER BY person_id}) do |res|
+          SELECT id AS person_id, avatar_content_type AS mime_type, md5(avatar_file_name) AS image_hash, avatar_file_size AS image_length
+          FROM people
+          WHERE avatar_file_name != ''
+          ORDER BY id}) do |res|
           res.each do |i|
             %w(person_id image_length).each{|x| i[x] = i[x].to_i}
 
