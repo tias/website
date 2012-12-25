@@ -461,7 +461,7 @@ module Fosdem
                    list = @db.exec('SELECT * FROM people ORDER BY id') do |res|
                      res
                      .reject{|p| eventpersons_by_person_id.fetch(p['id'].to_i, []).empty?}
-                     .map{|p| model(p, [:id, :gender, :first_name, :last_name, :public_name])}
+                     .map{|p| model(p, [:id, :gender, :first_name, :last_name, :public_name, :abstract, :description])}
                      .map do |p|
                        # pentabarfification
                        p['person_id'] = p['id']
@@ -478,6 +478,9 @@ module Fosdem
                               end
                        p['name'] = name
                        p['title'] = name
+                       %w(abstract description).each do |a|
+                         p[a] = markup(p[a])
+                       end
                        slugify! p, :name
                      end
                    end
@@ -486,42 +489,6 @@ module Fosdem
                  end
 
       speaker_by_person_id = byid speakers, :person_id
-
-      # post-process speakers with conference_person
-      begin
-        # decorate speakers with conference_persons, but only with selected fields
-        # to avoid bleeding private information such as their email
-        @db.exec('SELECT * FROM conference_person ORDER BY conference_id DESC') do |res|
-          res.each do |cp|
-            %w(person_id conference_person_id conference_id).each do |x|
-              cp[x] = cp[x].to_i
-            end
-
-            p = speaker_by_person_id[cp['person_id']]
-            # if we have no match (p) then it's not a speaker, and simply skip to the next
-            if p
-              # copy that attribute, might be useful for investigating issues in
-              # the frab database
-              p['conference_person_id'] = cp['conference_person_id']
-
-              unless p.has_key? 'abstract' or p.has_key? 'description'
-                # copy those attributes and convert the markup
-                %w(abstract description).each do |a|
-                  p[a] = markup(cp[a])
-                end
-                if cp['conference_id'] != cid
-                  # mark as data from a previous conference
-                  p['abstract_old'] = true
-                  p['description_old'] = true
-                end
-                next
-              end
-            else
-              # it's not a speaker, ignore
-            end
-          end
-        end
-      end
 
       # post-process speakers with conference_person_links
       # (now that we have person.conference_person_id)
