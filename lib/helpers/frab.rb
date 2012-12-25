@@ -321,27 +321,35 @@ module Fosdem
                  time_before = Time.now
                  events = @db.exec(%q{
                    SELECT *
-                   FROM event
+                   FROM events
                    WHERE conference_id=$1
-                   AND event_state='accepted'
-                   AND event_state_progress IN ('confirmed', 'reconfirmed')
+                   AND state IN ('unconfirmed', 'confirmed')
                    AND start_time IS NOT NULL
-                   AND (language IS NULL OR language='en')
+                   AND (language IS NULL OR language='' OR language='en')
                    AND public=true
-                   ORDER BY event_id}, [cid]) {|res|
+                   ORDER BY id}, [cid]) {|res|
                    res
-                   .select{|e| e['duration'] and e['conference_track_id'] and e['conference_room_id'] and e['conference_day_id']}
+                   .select{|e| e['time_slots'] and e['track_id'] and e['room_id'] and e['start_time']}
                    .map{|e|
-                     day = day_by_day_id.fetch(e['conference_day_id'].to_i)
+                     day = day_by_day_id.fetch(Date.parse(e['start_time']))
 
-                     me = model e, [:event_id, :conference_id, :slug, :title, :subtitle, :conference_track_id, :event_type, :duration, :event_state, :event_state_progress, :language, :conference_room_id, :conference_day_id, :abstract, :description ]
+                     me = model e, [:id, :conference_id, :title, :subtitle, :track_id, :event_type, :time_slots, :state, :language, :room_id, :abstract, :description ]
+                     # pentabarfification
+                     me['event_state'] = 'accepted'
+                     me['event_state_progress'] = me['state']
+                     me['event_id'] = me['id']
+                     mins = me['time_slots'].to_i*conference.fetch('timeslot_duration').to_i
+                     me['duration'] = "00:"+mins.to_s+":00"
+                     me['conference_track_id'] = me['track_id']
+                     me['conference_room_id'] = me['room_id']
+                     me['conference_day_id'] = Date.parse(e['start_time'])
 
                      me['start_time'], me['end_time'] =
                        begin
                          d = day.fetch('conference_day')
                          t = Time.parse(e.fetch('start_time')) + event_time_offset
                          dt = DateTime.new(d.year, d.month, d.day, t.hour, t.min, t.sec)
-                         du = Time.parse(e['duration'])
+                         du = Time.parse(me['duration'])
                          [
                            dt,
                            (dt + ((du.hour / 24.0) + (du.min / (24 * 60.0)) + (du.sec / (24 * 60 * 60.0))))
