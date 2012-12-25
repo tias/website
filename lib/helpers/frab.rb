@@ -257,6 +257,7 @@ module Fosdem
         fail "found more than one conference with id=#{cid}" if res.ntuples > 1
         res.first
       end)
+      conference['conference_id'] = conference['id'] # mimic pentabarf
       event_time_offset = begin
                             dc = Time.parse(conference['day_change'])
                             if dc
