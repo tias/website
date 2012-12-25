@@ -303,7 +303,7 @@ module Fosdem
                  # pentabarfification
                  dayhash = Hash.new
                  dayhash['conference_day_id'] = myday
-                 dayhash['name'] = myday.strftime('%A %d %b %Y')
+                 dayhash['name'] = myday.strftime('%A')
                  dayhash['conference_day'] = myday
                  slugify! dayhash, :name
                  result << dayhash
