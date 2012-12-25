@@ -258,6 +258,7 @@ module Fosdem
         res.first
       end)
       conference['conference_id'] = conference['id'] # mimic pentabarf
+      conference['timeslot_duration'] = "00:"+conference['timeslot_duration'].to_s+":00"
       event_time_offset = begin
                             # Not relevant for frab?
                             #dc = Time.parse(conference['day_change'])
