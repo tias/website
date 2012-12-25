@@ -465,6 +465,7 @@ module Fosdem
                      .map do |p|
                        # pentabarfification
                        p['person_id'] = p['id']
+                       p['conference_person_id'] = p['id']
                        p['title'] = ''
                        p['nickname'] = ''
                        name = if p['public_name']
@@ -495,7 +496,9 @@ module Fosdem
       # but fetch and cache all conference_person_link rows,
       # it's faster
       begin
-        cplinks = model(dblist('SELECT * FROM conference_person_link'))
+        cplinks = model(dblist('SELECT * FROM links WHERE linkable_type=\'Person\''))
+        cplinks.map{|l| l['conference_person_id'] = l['linkable_id']}
+        cplinks.map{|l| l['rank'] = l['id']}
         # and hash them by conference_person_id
         cplinks_by_cpid = begin
                             h = {}
@@ -512,6 +515,7 @@ module Fosdem
           end
           p['links'] = links
         end
+        puts speakers
       end
 
       # post-process events with event_link
