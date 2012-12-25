@@ -349,7 +349,7 @@ module Fosdem
                      me['conference_room_id'] = e['room_id'] # frab
 
                      start = DateTime.parse(e['start_time'])
-                     minutes_per_slot = 5 # TODO, hardcoded for now
+                     minutes_per_slot = conference.fetch('timeslot_duration').to_i
                      stop = start + Rational(e['time_slots'].to_i*minutes_per_slot,(24*60)) # hardcoded 5 min per slot
                      me['start_time'], me['end_time'] =
                        begin
@@ -746,10 +746,10 @@ module Fosdem
       begin
         # compute time slot interval in minutes from timeslot_duration on the conference object
         tsim = begin
-                 t = Time.parse(conference.fetch('timeslot_duration'))
-                 raise "conference :timeslot_duration has seconds" unless t.sec == 0
-                 raise "conference :timeslot_duration is less than 5 minutes" unless t.min >= 5
-                 t.min + t.hour * 60
+                 #t = Time.parse(conference.fetch('timeslot_duration'))
+                 #raise "conference :timeslot_duration has seconds" unless t.sec == 0
+                 #raise "conference :timeslot_duration is less than 5 minutes" unless t.min >= 5
+                conference.fetch('timeslot_duration').to_i # ts_dur is in minutes in frab
                end
 
         [
