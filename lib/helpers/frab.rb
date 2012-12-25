@@ -458,11 +458,15 @@ module Fosdem
       speakers = begin
                    time_before = Time.now
 
-                   list = @db.exec('SELECT * FROM person ORDER BY person_id') do |res|
+                   list = @db.exec('SELECT * FROM people ORDER BY id') do |res|
                      res
-                     .reject{|p| eventpersons_by_person_id.fetch(p['person_id'].to_i, []).empty?}
-                     .map{|p| model(p, [:person_id, :title, :gender, :first_name, :last_name, :public_name, :nickname])}
+                     .reject{|p| eventpersons_by_person_id.fetch(p['id'].to_i, []).empty?}
+                     .map{|p| model(p, [:id, :gender, :first_name, :last_name, :public_name])}
                      .map do |p|
+                       # pentabarfification
+                       p['person_id'] = p['id']
+                       p['title'] = ''
+                       p['nickname'] = ''
                        name = if p['public_name']
                                 p['public_name']
                               elsif p['first_name'] and p['last_name']
