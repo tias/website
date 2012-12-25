@@ -525,7 +525,10 @@ module Fosdem
         # fetch all event_link rows into a cache, faster
         # (don't run model() on all of them, we'll discard most as the query returns the
         # event_link rows for all conferences)
-        eventlinks = model(dblist('SELECT * FROM event_link ORDER BY event_id'))
+        eventlinks = model(dblist('SELECT * FROM links WHERE linkable_type=\'Event\' ORDER BY linkable_id'))
+        eventlinks.map{|l| l['event_id'] = l['linkable_id']}
+        eventlinks.map{|l| l['event_link_id'] = l['id']}
+        eventlinks.map{|l| l['rank'] = l['id']}
         eventlinks_by_event_id = begin
                                    h = {}
                                    eventlinks.each{|l| h[l['event_id']] = []}
