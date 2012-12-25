@@ -294,18 +294,22 @@ module Fosdem
         l
       end
 
-      days = @db.exec(%q{
-        SELECT *
-        FROM conference_day
-        WHERE conference_id=$1
-        AND public=true
-        ORDER BY conference_day}, [cid]) {|res|
-        res.map{|row|
-          m = model row, [:conference_day_id, :name]
-          m['conference_day'] = Date.parse(row['conference_day'])
-          m
-        }.map{|x| slugify! x, :name}
-      }
+      days = begin
+               result = Array.new
+               myday = Date.parse(conference.fetch('first_day'))
+               lastday = Date.parse(conference.fetch('last_day'))
+               until (myday > lastday)
+                 # pentabarfification
+                 dayhash = Hash.new
+                 dayhash['conference_day_id'] = myday
+                 dayhash['name'] = myday.strftime('%A %d %b %Y')
+                 m = model dayhash, [:conference_day_id, :name]
+                 m['conference_day'] = Date.parse(row['conference_day'])
+                 slugify! m, :name
+                 result << m
+               end
+               result
+             end
       day_by_day_id = byid days, :conference_day_id
 
       # decorate days with a title
