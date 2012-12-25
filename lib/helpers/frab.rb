@@ -257,6 +257,7 @@ module Fosdem
         fail "found more than one conference with id=#{cid}" if res.ntuples > 1
         res.first
       end)
+      conference['conference_id'] = conference['id'] # mimic pentabarf
       event_time_offset = begin
                             # Not relevant for frab?
                             #dc = Time.parse(conference['day_change'])
@@ -298,30 +299,23 @@ module Fosdem
                myday = Date.parse(conference.fetch('first_day'))
                lastday = Date.parse(conference.fetch('last_day'))
                until (myday > lastday)
-                 result << myday
+                 # pentabarfification
+                 dayhash = Hash.new
+                 dayhash['conference_day_id'] = myday
+                 dayhash['name'] = myday.strftime('%A %d %b %Y')
+                 dayhash['conference_day'] = myday
+                 slugify! dayhash, :name
+                 result << dayhash
                  myday = (myday + 1).to_date
                end
                result
              end
-      #Pentabarf code
-      #days = @db.exec(%q{
-      #  SELECT *
-      #  FROM conference_day
-      #  WHERE conference_id=$1
-      #  AND public=true
-      #  ORDER BY conference_day}, [cid]) {|res|
-      #  res.map{|row|
-      #    m = model row, [:conference_day_id, :name]
-      #    m['conference_day'] = Date.parse(row['conference_day'])
-      #    m
-      #  }.map{|x| slugify! x, :name}
-      #}
-      #day_by_day_id = byid days, :conference_day_id
-      #
-      ## decorate days with a title
-      #days.each do |d|
-      #  d['title'] = d['name']
-      #end
+      day_by_day_id = byid days, :conference_day_id
+
+      # decorate days with a title
+      days.each do |d|
+        d['title'] = d['name']
+      end
 
       events = begin
                  time_before = Time.now
@@ -337,37 +331,42 @@ module Fosdem
                    res
                    .select{|e| e['time_slots'] and e['track_id'] and e['room_id'] and e['start_time']}
                    .map{|e|
-                     %w(id event_id track_id room_id).each do |x|
-                       e[x] = e[x].to_i
-                     end
-                     day = Date.parse(e['start_time'])
+                     day = day_by_day_id.fetch(Date.parse(e['start_time']))
 
                      me = model e, [:id, :conference_id, :title, :subtitle, :track_id, :event_type, :time_slots, :state, :language, :room_id, :abstract, :description ]
-                     # missing: :slug, :conference_day_id, :duration, :event_state_progress
-                     me['event_id'] = e['id'] # frab id
-                     me['conference_track_id'] = e['track_id'] # frab
-                     me['conference_room_id'] = e['room_id'] # frab
+                     # pentabarfification
+                     me['event_state'] = 'accepted'
+                     me['event_state_progress'] = me['state']
+                     me['event_id'] = me['id']
+                     mins = me['time_slots'].to_i*conference.fetch('timeslot_duration').to_i
+                     me['duration'] = "00:"+mins.to_s+":00"
+                     me['conference_track_id'] = me['track_id']
+                     me['conference_room_id'] = me['room_id']
+                     me['conference_day_id'] = Date.parse(e['start_time'])
 
-                     start = DateTime.parse(e['start_time'])
-                     minutes_per_slot = conference.fetch('timeslot_duration').to_i
-                     stop = start + Rational(e['time_slots'].to_i*minutes_per_slot,(24*60)) # hardcoded 5 min per slot
                      me['start_time'], me['end_time'] =
                        begin
+                         d = day.fetch('conference_day')
+                         t = Time.parse(e.fetch('start_time')) + event_time_offset
+                         dt = DateTime.new(d.year, d.month, d.day, t.hour, t.min, t.sec)
+                         du = Time.parse(me['duration'])
                          [
-                           start,
-                           stop
+                           dt,
+                           (dt + ((du.hour / 24.0) + (du.min / (24 * 60.0)) + (du.sec / (24 * 60 * 60.0))))
                          ].map{|x| x.strftime('%H:%M')}
                        end
                      me['start_datetime'], me['end_datetime'] =
                        begin
-                         [start, stop].map do |x|
-                           dt = x
+                         d = day.fetch('conference_day')
+                         ['start_time', 'end_time'].map do |x|
+                           t = Time.parse(me[x])
+                           dt = DateTime.new(d.year, d.month, d.day, t.hour, t.min, t.sec)
                            offset = conftz.period_for_local(dt).utc_total_offset
-                           yamldate DateTime.new(dt.year, dt.month, dt.day, dt.hour, dt.min, dt.sec, Rational(offset/3600.0, 24))
+                           yamldate DateTime.new(d.year, d.month, d.day, t.hour, t.min, t.sec, Rational(offset/3600.0, 24))
                          end
                        end
-                     me['day'] = day#.fetch('slug')
-                     me['day_name'] = day.strftime('%A %d %b %Y')
+                     me['day'] = day.fetch('slug')
+                     me['day_name'] = day.fetch('name')
                      #me['conference_day'] = day.fetch('conference_day_id')
 
                      me
@@ -384,9 +383,9 @@ module Fosdem
         begin
           events.each do |event|
             err = []
-            #err << "missing slug" unless event.has_key? 'slug'
+            err << "missing slug" unless event.has_key? 'slug'
             err << "accepted event without start_time" unless event.has_key? 'start_time'
-            err << "accepted event without timeslots" unless event.has_key? 'time_slots'
+            err << "accepted event without duration" unless event.has_key? 'duration'
             if event['start_time']
               t = Time.parse(event['start_time'])
               err << "event starts before 09:00: #{event['start_time']}" if t.hour < 9
@@ -419,7 +418,7 @@ module Fosdem
 
       event_by_event_id = begin
                             h = {}
-                            events.each{|e| h[e['id']] = e}
+                            events.each{|e| h[e['event_id']] = e}
                             h
                           end
 
@@ -459,24 +458,22 @@ module Fosdem
       speakers = begin
                    time_before = Time.now
 
-                   list = @db.exec('SELECT * FROM people ORDER BY id') do |res|
+                   list = @db.exec('SELECT * FROM person ORDER BY person_id') do |res|
                      res
-                     .reject{|p| eventpersons_by_person_id.fetch(p['id'].to_i, []).empty?}
-                     .map{|p| model(p, [:id, :gender, :first_name, :last_name, :public_name, :abstract, :description])}
+                     .reject{|p| eventpersons_by_person_id.fetch(p['person_id'].to_i, []).empty?}
+                     .map{|p| model(p, [:person_id, :title, :gender, :first_name, :last_name, :public_name, :nickname])}
                      .map do |p|
                        name = if p['public_name']
                                 p['public_name']
                               elsif p['first_name'] and p['last_name']
                                 "#{p['first_name']} #{p['last_name']}"
+                              elsif p['nickname']
+                                p['nickname']
                               else
                                 %w(first_name last_name).map{|x| p[x]}.reject(&:nil?).join(' ')
                               end
-                       p['person_id'] = p['id'] # frab id
                        p['name'] = name
                        p['title'] = name
-                       %w(abstract description).each do |a|
-                         p[a] = markup(p[a])
-                       end
                        slugify! p, :name
                      end
                    end
@@ -486,22 +483,58 @@ module Fosdem
 
       speaker_by_person_id = byid speakers, :person_id
 
+      # post-process speakers with conference_person
+      begin
+        # decorate speakers with conference_persons, but only with selected fields
+        # to avoid bleeding private information such as their email
+        @db.exec('SELECT * FROM conference_person ORDER BY conference_id DESC') do |res|
+          res.each do |cp|
+            %w(person_id conference_person_id conference_id).each do |x|
+              cp[x] = cp[x].to_i
+            end
+
+            p = speaker_by_person_id[cp['person_id']]
+            # if we have no match (p) then it's not a speaker, and simply skip to the next
+            if p
+              # copy that attribute, might be useful for investigating issues in
+              # the frab database
+              p['conference_person_id'] = cp['conference_person_id']
+
+              unless p.has_key? 'abstract' or p.has_key? 'description'
+                # copy those attributes and convert the markup
+                %w(abstract description).each do |a|
+                  p[a] = markup(cp[a])
+                end
+                if cp['conference_id'] != cid
+                  # mark as data from a previous conference
+                  p['abstract_old'] = true
+                  p['description_old'] = true
+                end
+                next
+              end
+            else
+              # it's not a speaker, ignore
+            end
+          end
+        end
+      end
+
       # post-process speakers with conference_person_links
       # (now that we have person.conference_person_id)
       # but fetch and cache all conference_person_link rows,
       # it's faster
       begin
-        cplinks = model(dblist('SELECT * FROM links WHERE linkable_type=\'Person\''))
+        cplinks = model(dblist('SELECT * FROM conference_person_link'))
         # and hash them by conference_person_id
         cplinks_by_cpid = begin
                             h = {}
-                            cplinks.each{|l| h[l.fetch('linkable_id')] = []}
-                            cplinks.each{|l| h[l.fetch('linkable_id')] << l}
+                            cplinks.each{|l| h[l.fetch('conference_person_id')] = []}
+                            cplinks.each{|l| h[l.fetch('conference_person_id')] << l}
                             h
                           end
         # now decorate the persons with their links
         speakers.each do |p|
-          links = model(cplinks_by_cpid.fetch(p['id'], []), [:url, :title, :id]).reject{|l| l['url'] == 'http://'}.sort_by{|l| l['id']}
+          links = model(cplinks_by_cpid.fetch(p['conference_person_id'], []), [:url, :title, :rank]).reject{|l| l['url'] == 'http://'}.sort_by{|l| l['rank']}
           # post-process links by setting 'title' if not set
           links.each do |l|
             l['title'] = l.fetch('url') unless l['title']
@@ -517,15 +550,15 @@ module Fosdem
         # fetch all event_link rows into a cache, faster
         # (don't run model() on all of them, we'll discard most as the query returns the
         # event_link rows for all conferences)
-        eventlinks = model(dblist('SELECT * FROM links WHERE linkable_type=\'Event\' ORDER BY linkable_id'))
+        eventlinks = model(dblist('SELECT * FROM event_link ORDER BY event_id'))
         eventlinks_by_event_id = begin
                                    h = {}
-                                   eventlinks.each{|l| h[l['linkable_id']] = []}
-                                   eventlinks.each{|l| h[l['linkable_id']] << l}
+                                   eventlinks.each{|l| h[l['event_id']] = []}
+                                   eventlinks.each{|l| h[l['event_id']] << l}
                                    h
                                  end
         events.each do |e|
-          links = model(eventlinks_by_event_id.fetch(e['id'], []).sort_by{|l| [l['id'].to_i, l['linkable_id'].to_i]}, [:url, :title, :id])
+          links = model(eventlinks_by_event_id.fetch(e['event_id'], []).sort_by{|l| [l['rank'].to_i, l['event_link_id'].to_i]}, [:url, :title, :rank])
           # post-process the links and set 'title' if not set
           links.each do |l|
             l['title'] = l.fetch('url') unless l['title']
@@ -536,22 +569,51 @@ module Fosdem
         log(:high, "loaded #{eventlinks.size} event links", Time.now - time_before)
       end
 
+      # post-process events with event_related
+      begin
+        time_before = Time.now
+
+        # fetch all event_related into a cache, faster
+        eventrelated = model(dblist(%q{
+        SELECT *
+        FROM event_related
+        ORDER BY event_id1, event_id2})).select{|r| event_by_event_id.has_key? r['event_id1']}
+        h = begin
+              require 'set'
+
+              h = {}
+              eventrelated.each do |r|
+                [
+                  [ r['event_id1'], r['event_id2'] ],
+                  [ r['event_id2'], r['event_id1'] ],
+                ].each do |a|
+                  h[a.first] = Set.new unless h.has_key? a.first
+                  h[a.first] << a.last
+                end
+              end
+              h
+            end
+
+        h.each do |from_id, to_ids|
+          from = event_by_event_id.fetch(from_id)
+          from['related'] = to_ids.map{|id| event_by_event_id.fetch(id)['slug']}
+        end
+
+        log(:high, "loaded #{eventrelated.size} event relations", Time.now - time_before)
+      end
+
       # tracks
       tracks = begin
                  time_before = Time.now
 
                  list = @db.exec(%q{
                  SELECT *
-                 FROM tracks
+                 FROM conference_track
                  WHERE conference_id=$1
-                 ORDER BY id}, [cid]) do |res|
+                 ORDER BY rank, conference_track_id}, [cid]) do |res|
                    res
-                   .reject{|t| t['name'] == 'Main Tracks'}
+                   .reject{|t| t['conference_track'] == 'Main Tracks'}
                    .map do |t|
-                     t['id'] = t['id'].to_i
-                     t['conference_track'] = t['name'] # frab
-                     t['conference_track_id'] = t['id'] # frab
-                     t['rank'] = t['id'] # frab
                      t['name'] = t['conference_track'].gsub(/\s+(track|devroom)$/i, '')
                      t['title'] = t['conference_track']
                      t['type'] = case t['conference_track']
@@ -588,7 +650,7 @@ module Fosdem
           t['events'] = trackevents.map(&to_slug)
           t['events_by_day'] = begin
                                  h = {}
-                                 days.each{|d| h[d] = trackevents.select{|e| d === e['day']}.map(&to_slug)}
+                                 days.each{|d| h[d.fetch('slug')] = trackevents.select{|e| e['conference_day_id'] == d['conference_day_id']}.map(&to_slug)}
                                  h
                                end
 
@@ -613,18 +675,14 @@ module Fosdem
                 time_before = Time.now
                 rooms = slugify!(model(dblist(%q{
                 SELECT *
-                FROM rooms
+                FROM conference_room
                 WHERE conference_id=$1
                 AND public=true
-                ORDER BY rank, id}, [cid]),
-                [:id, :name, :size, :rank]), :name)
+                ORDER BY rank, conference_room_id}, [cid]),
+                [:conference_room_id, :conference_room, :size, :rank]), :conference_room)
                 log(:high, "loaded #{rooms.size} rooms", Time.now - time_before)
                 rooms
               end
-      rooms.each do |r|
-        r['conference_room_id'] = r['id']
-        r['conference_room'] = r['name']
-      end
 
       room_by_room_id = byid rooms, :conference_room_id
 
@@ -647,7 +705,7 @@ module Fosdem
           # also set the events by day
           r['events_by_day'] = begin
                                  h = {}
-                                 days.each{|d| h[d] = roomevents.select{|e| d === e['day']}.map(&to_slug)}
+                                 days.each{|d| h[d.fetch('slug')] = roomevents.select{|e| e['conference_day_id'] == d['conference_day_id']}.map(&to_slug)}
                                  h
                                end
         end
@@ -671,11 +729,12 @@ module Fosdem
 
         t['events_per_room_per_day'] = begin
                                          by_day_hash = {}
-                                         days.each{|d| by_day_hash[d] = {}}
-                                         trackevents.group_by{|e| e['day']}.each do |day, track_events_per_day|
+                                         days.each{|d| by_day_hash[d.fetch('slug')] = {}}
+                                         trackevents.group_by{|e| e['conference_day_id']}.each do |day_id, track_events_per_day|
+                                           day_name = day_by_day_id.fetch(day_id).fetch('slug')
                                            track_events_per_day.group_by{|e| e['conference_room_id']}.each do |room_id, track_events_per_room|
                                              room_slug = room_by_room_id.fetch(room_id).fetch('slug')
-                                             by_room_hash = by_day_hash.fetch(day)
+                                             by_room_hash = by_day_hash.fetch(day_name)
                                              by_room_hash[room_slug] = [] unless by_room_hash.has_key? room_slug
                                              track_events_per_room.each{|e| by_room_hash[room_slug] << e.fetch('slug')}
                                            end
@@ -696,7 +755,7 @@ module Fosdem
           s['events'] = speaker_events.map(&to_slug)
           s['events_by_day'] = begin
                                  h = {}
-                                 days.each{|d| h[d] = speaker_events.select{|e| d === e['day']}.map(&to_slug)}
+                                 days.each{|d| h[d.fetch('slug')] = speaker_events.select{|e| e['conference_day_id'] == d['conference_day_id']}.map(&to_slug)}
                                  h
                                end
         end
@@ -707,19 +766,17 @@ module Fosdem
         events_per_day = begin
                            h = {}
                            days.each do |d|
-                             h[d] = events.select{|e| d === e['day']}
+                             cdi = d.fetch('conference_day_id')
+                             h[d.fetch('slug')] = events.select{|e| e.fetch('conference_day_id') == cdi}
                            end
                            h
                          end
 
-        # somewhere when I started, I decided day is not a hash...
-        start_time = Hash.new
-        end_time = Hash.new
         days.each do |d|
-          earliest = events_per_day.fetch(d).sort_by{|e| e.fetch 'start_time'}.first
-          latest   = events_per_day.fetch(d).sort_by{|e| e.fetch 'end_time'}.last
-          start_time[d] = earliest.fetch('start_time') if earliest
-          end_time[d] = latest.fetch('end_time') if latest
+          earliest = events_per_day.fetch(d['slug']).sort_by{|e| e.fetch 'start_time'}.first
+          latest   = events_per_day.fetch(d['slug']).sort_by{|e| e.fetch 'end_time'}.last
+          d['start_time'] = earliest.fetch('start_time') if earliest
+          d['end_time'] = latest.fetch('end_time') if latest
         end
 
         {
@@ -732,11 +789,11 @@ module Fosdem
             kv = item.fetch(k)
             ['start_time', 'end_time'].each{|x| item[x] = {}}
             days.each do |d|
-              matching_events = events_per_day.fetch(d).select{|e| e.fetch(k) == kv}
+              matching_events = events_per_day.fetch(d['slug']).select{|e| e.fetch(k) == kv}
               earliest = matching_events.sort_by{|e| e.fetch 'start_time'}.first
               latest   = matching_events.sort_by{|e| e.fetch 'end_time'  }.last
-              item['start_time'][d] = earliest ? earliest.fetch('start_time') : nil
-              item['end_time'  ][d] = latest   ?   latest.fetch('end_time')   : nil
+              item['start_time'][d['slug']] = earliest ? earliest.fetch('start_time') : nil
+              item['end_time'  ][d['slug']] = latest   ?   latest.fetch('end_time')   : nil
             end
           end
         end
@@ -746,10 +803,10 @@ module Fosdem
       begin
         # compute time slot interval in minutes from timeslot_duration on the conference object
         tsim = begin
-                 #t = Time.parse(conference.fetch('timeslot_duration'))
-                 #raise "conference :timeslot_duration has seconds" unless t.sec == 0
-                 #raise "conference :timeslot_duration is less than 5 minutes" unless t.min >= 5
-                conference.fetch('timeslot_duration').to_i # ts_dur is in minutes in frab
+                 t = Time.parse(conference.fetch('timeslot_duration'))
+                 raise "conference :timeslot_duration has seconds" unless t.sec == 0
+                 raise "conference :timeslot_duration is less than 5 minutes" unless t.min >= 5
+                 t.min + t.hour * 60
                end
 
         [
