@@ -468,11 +468,11 @@ module Fosdem
                        p['conference_person_id'] = p['id']
                        p['title'] = ''
                        p['nickname'] = ''
-                       name = if p['public_name']
+                       name = if p['public_name'] != ''
                                 p['public_name']
-                              elsif p['first_name'] and p['last_name']
+                              elsif p['first_name'] != '' and p['last_name'] != ''
                                 "#{p['first_name']} #{p['last_name']}"
-                              elsif p['nickname']
+                              elsif p['nickname'] != ''
                                 p['nickname']
                               else
                                 %w(first_name last_name).map{|x| p[x]}.reject(&:nil?).join(' ')
