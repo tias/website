@@ -754,7 +754,10 @@ module Fosdem
       begin
         # compute time slot interval in minutes from timeslot_duration on the conference object
         tsim = begin
-                 conference.fetch('timeslot_duration').to_i # ts_dur is in minutes in frab
+                 t = Time.parse(conference.fetch('timeslot_duration'))
+                 raise "conference :timeslot_duration has seconds" unless t.sec == 0
+                 raise "conference :timeslot_duration is less than 5 minutes" unless t.min >= 5
+                 t.min + t.hour * 60
                end
 
         [
