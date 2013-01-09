@@ -429,7 +429,7 @@ module Fosdem
                        eventpersons = dblist(%q{
                          SELECT *
                          FROM event_people
-                         WHERE event_role IN ('coordinator', 'moderator', 'speaker')
+                         WHERE event_role IN ('speaker')
                        })
                        .map{|ep|
                          %w(event_id person_id).each do |x|
