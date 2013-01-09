@@ -895,6 +895,8 @@ module Fosdem
         end
         log(:high, "loaded #{counter} attachment hashes, #{to_export.size} need to be exported", Time.now - t)
 
+=begin
+Not needed for frab
         log(:high, "exporting #{to_export.size} modified or missing attachments")
         t = Time.now
         to_export.each do |todo|
@@ -926,6 +928,7 @@ module Fosdem
             end
           end
         end
+=end
       end
       after_attachments = Time.now
       start_time += (after_attachments - before_attachments)
@@ -1001,6 +1004,8 @@ module Fosdem
         end
         log(:high, "loaded #{counter} event logo hashes, #{to_export.size} need to be exported", Time.now - t)
 
+=begin
+Not needed for frab
         before_export = Time.now
         to_export.each do |todo|
           t = Time.now
@@ -1042,6 +1047,7 @@ module Fosdem
           end
         end
         log(:high, "exported #{to_export.size} event logos", Time.now - before_export)
+=end
       end
       after_logos = Time.now
       start_time += (after_logos - before_logos)
@@ -1127,6 +1133,8 @@ module Fosdem
           end #res
         log(:high, "loaded #{counter} speaker photo hashes, #{to_export.size} need to be exported", Time.now - t)
 
+=begin
+Not needed for frab
         before_export = Time.now
         to_export.each do |todo|
           t = Time.now
@@ -1179,6 +1187,7 @@ module Fosdem
           end
         end
         log(:high, "exported #{to_export.size} speaker photos", Time.now - before_export)
+=end
       end
       after_photos = Time.now
       start_time += (after_photos - before_photos)
